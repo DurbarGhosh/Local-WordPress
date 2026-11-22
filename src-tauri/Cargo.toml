@@ -1,0 +1,12 @@
+[package]
+name = "wp-local-lite"
+version = "0.1.0"
+edition = "2021"
+description = "A small Mac app for local WordPress development."
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+wplocal-core = { path = "../crates/core" }

@@ -1,0 +1,37 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test -p wplocal-core
+
+  mac-app:
+    runs-on: macos-14   # Apple Silicon
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Make app icons from app-icon.png
+        run: npx --yes @tauri-apps/cli@2 icon app-icon.png
+      - name: Build the .app
+        run: npx --yes @tauri-apps/cli@2 build --bundles app
+      - name: Zip the app
+        run: |
+          cd target/release/bundle/macos
+          ditto -c -k --keepParent "WP Local Lite.app" "$GITHUB_WORKSPACE/WP-Local-Lite-mac-arm64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WP-Local-Lite-mac-arm64
+          path: WP-Local-Lite-mac-arm64.zip

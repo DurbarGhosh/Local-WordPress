@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WP Local Lite</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 40px; background: #fff; color: #1a1a1a;
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  button {
+    font: inherit; background: none; border: 1px solid #d4d4d4; border-radius: 6px;
+    padding: 4px 12px; cursor: pointer; color: #1a1a1a;
+  }
+  button:hover { border-color: #1a1a1a; }
+  .sub { color: #6b6b6b; margin: 0 0 24px; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-weight: 500; color: #6b6b6b; font-size: 12px; padding: 8px 12px 8px 0; border-bottom: 1px solid #1a1a1a; }
+  td { padding: 12px 12px 12px 0; border-bottom: 1px solid #e8e8e8; vertical-align: top; }
+  td.name { font-weight: 500; }
+  .muted { color: #6b6b6b; font-size: 12px; }
+  .ok { color: #1a1a1a; }
+  .warn { color: #b3261e; font-size: 12px; margin-top: 2px; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; background: #c9c9c9; }
+  .dot.on { background: #1a1a1a; }
+  .note { margin-top: 24px; color: #6b6b6b; font-size: 12px; }
+  #error { color: #b3261e; margin: 16px 0; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Sites</h1>
+    <button id="refresh">Refresh</button>
+  </header>
+  <p class="sub" id="where">Reading Local's site list…</p>
+  <div id="error" hidden></div>
+  <table id="table" hidden>
+    <thead><tr><th>Site</th><th>Domain</th><th>PHP</th><th>MySQL</th><th>Status</th><th>Ready</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <p class="note">Read-only preview. Nothing is started, changed or deleted yet.</p>
+
+<script>
+  const invoke = window.__TAURI__.core.invoke;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  async function load() {
+    $("error").hidden = true;
+    try {
+      const o = await invoke("list_sites");
+      $("where").textContent = o.local_found ? "Read from " + o.local_dir : "Local was not found at " + o.local_dir;
+      if (o.error) { $("error").textContent = o.error; $("error").hidden = false; }
+      $("table").hidden = o.sites.length === 0;
+      $("rows").innerHTML = o.sites.map((s) => `
+        <tr>
+          <td class="name">${esc(s.name)}<div class="muted">${esc(s.path)}</div></td>
+          <td>${esc(s.domain)}</td>
+          <td>${esc(s.php || "—")}</td>
+          <td>${esc(s.mysql || "—")}</td>
+          <td><span class="dot ${s.running ? "on" : ""}"></span>${s.running ? "Running" : "Stopped"}</td>
+          <td>${s.missing.length === 0
+            ? '<span class="ok">Yes</span>'
+            : '<span>No</span>' + s.missing.map((m) => `<div class="warn">${esc(m)}</div>`).join("")}</td>
+        </tr>`).join("");
+    } catch (e) {
+      $("error").textContent = String(e); $("error").hidden = false;
+    }
+  }
+  $("refresh").addEventListener("click", load);
+  load();
+</script>
+</body>
+</html>
