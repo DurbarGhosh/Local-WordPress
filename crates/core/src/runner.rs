@@ -136,6 +136,10 @@ pub fn plan_site(local: &Path, id: &str) -> Result<SitePlan, String> {
         php_args.push("-c".into());
         php_args.push(conf.join("php/php.ini").into_os_string());
     }
+    // php-fpm resolves `include=php-fpm.d/*.conf` relative to its prefix, which
+    // otherwise points at the folder it was compiled in on the vendor's machine.
+    php_args.push("-p".into());
+    php_args.push(conf.join("php").into_os_string());
     php_args.push("-F".into());
 
     let mut services = vec![

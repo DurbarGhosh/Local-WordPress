@@ -87,6 +87,9 @@ fn plan_lists_services_in_start_order_with_local_settings_files() {
     assert_eq!(plan.services[0].ready, Ready::Port(f.ports[0]));
     let mysql_arg = plan.services[0].args[0].to_string_lossy().into_owned();
     assert!(mysql_arg.starts_with("--defaults-file=") && mysql_arg.ends_with("run/AAA111/conf/mysql/my.cnf"));
+    let php_args: Vec<String> = plan.services[1].args.iter().map(|a| a.to_string_lossy().into_owned()).collect();
+    let p_at = php_args.iter().position(|a| a == "-p").expect("php needs -p");
+    assert!(php_args[p_at + 1].ends_with("run/AAA111/conf/php"));
     assert!(plan.services[3].optional);
     assert_eq!(plan.ports.len(), 4);
 }
