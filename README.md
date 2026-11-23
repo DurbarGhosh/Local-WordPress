@@ -10,7 +10,7 @@ it does not start, stop, change or delete anything.
 ## Get the app
 
 1. Open the **Actions** tab, choose the latest **build** run.
-2. Download the **WP-Local-Lite-mac-arm64** artifact and unzip it.
+2. Download the **mac-app** artifact and unzip it.
 3. Move `WP Local Lite.app` to Applications. The app is unsigned, so macOS blocks it at
    first. Either run this in Terminal:
    `xattr -dr com.apple.quarantine "/Applications/WP Local Lite.app"`

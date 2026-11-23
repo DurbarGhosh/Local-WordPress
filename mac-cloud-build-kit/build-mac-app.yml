@@ -1,0 +1,34 @@
+# Builds a Tauri app (Rust + web screen) on GitHub's free Mac and
+# gives you a downloadable .app. Save this file in your repo as:
+#   .github/workflows/build-mac-app.yml
+name: Build Mac app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # also adds a "Run workflow" button on the Actions tab
+
+jobs:
+  mac-app:
+    runs-on: macos-latest   # a recent Apple Silicon Mac
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Make app icons (only if app-icon.png exists)
+        run: |
+          if [ -f app-icon.png ]; then npx --yes @tauri-apps/cli@2 icon app-icon.png; fi
+      - name: Build the app
+        run: npx --yes @tauri-apps/cli@2 build --bundles app
+      - name: Zip the app
+        run: |
+          APP=$(find . -type d -name "*.app" -path "*bundle/macos*" | head -1)
+          echo "Found: $APP"
+          ditto -c -k --keepParent "$APP" "$GITHUB_WORKSPACE/mac-app.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-app
+          path: mac-app.zip

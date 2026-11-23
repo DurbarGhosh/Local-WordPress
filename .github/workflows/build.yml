@@ -15,7 +15,7 @@ jobs:
       - run: cargo test -p wplocal-core
 
   mac-app:
-    runs-on: macos-latest   # Apple Silicon
+    runs-on: macos-latest   # a recent Apple Silicon Mac
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -23,15 +23,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Make app icons from app-icon.png
-        run: npx --yes @tauri-apps/cli@2 icon app-icon.png
-      - name: Build the .app
+      - name: Make app icons (only if app-icon.png exists)
+        run: |
+          if [ -f app-icon.png ]; then npx --yes @tauri-apps/cli@2 icon app-icon.png; fi
+      - name: Build the app
         run: npx --yes @tauri-apps/cli@2 build --bundles app
       - name: Zip the app
         run: |
-          cd target/release/bundle/macos
-          ditto -c -k --keepParent "WP Local Lite.app" "$GITHUB_WORKSPACE/WP-Local-Lite-mac-arm64.zip"
+          APP=$(find . -type d -name "*.app" -path "*bundle/macos*" | head -1)
+          echo "Found: $APP"
+          ditto -c -k --keepParent "$APP" "$GITHUB_WORKSPACE/mac-app.zip"
       - uses: actions/upload-artifact@v4
         with:
-          name: WP-Local-Lite-mac-arm64
-          path: WP-Local-Lite-mac-arm64.zip
+          name: mac-app
+          path: mac-app.zip
