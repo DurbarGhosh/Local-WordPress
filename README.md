@@ -11,9 +11,11 @@ it does not start, stop, change or delete anything.
 
 1. Open the **Actions** tab, choose the latest **build** run.
 2. Download the **WP-Local-Lite-mac-arm64** artifact and unzip it.
-3. Move `WP Local Lite.app` to Applications, then **right-click → Open** the first time
-   (the app is unsigned). If macOS says it is damaged, run:
+3. Move `WP Local Lite.app` to Applications. The app is unsigned, so macOS blocks it at
+   first. Either run this in Terminal:
    `xattr -dr com.apple.quarantine "/Applications/WP Local Lite.app"`
+   or double-click the app once, then open System Settings → Privacy & Security
+   and click **Open Anyway**.
 
 Apple Silicon only for now.
 
