@@ -3,6 +3,9 @@
 //! Milestone 1 is strictly read-only: list the sites Local knows about and
 //! report whether everything needed to run them is present on disk.
 
+pub mod runner;
+pub use runner::Runner;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -27,6 +30,8 @@ pub struct Site {
     pub running: bool,
     /// Things the app would need but cannot find. Empty means adoptable.
     pub missing: Vec<String>,
+    /// True when this app started the site and can therefore stop it.
+    pub managed: bool,
 }
 
 /// Everything `list_sites` can say about the machine.
@@ -69,7 +74,7 @@ pub fn local_dir() -> PathBuf {
     home_dir().join("Library/Application Support/Local")
 }
 
-fn home_dir() -> PathBuf {
+pub(crate) fn home_dir() -> PathBuf {
     std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default()
 }
 
@@ -82,7 +87,7 @@ fn expand_tilde(path: &str, home: &Path) -> PathBuf {
 }
 
 /// Finds `lightning-services/<name>-<version>+<build>` for a service.
-fn find_service_dir(local: &Path, name: &str, version: &str) -> Option<PathBuf> {
+pub(crate) fn find_service_dir(local: &Path, name: &str, version: &str) -> Option<PathBuf> {
     let prefix = format!("{name}-{version}+");
     let entries = fs::read_dir(local.join("lightning-services")).ok()?;
     entries
@@ -91,7 +96,7 @@ fn find_service_dir(local: &Path, name: &str, version: &str) -> Option<PathBuf> 
         .find(|p| p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with(&prefix)))
 }
 
-fn port_open(port: u16) -> bool {
+pub(crate) fn port_open(port: u16) -> bool {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     TcpStream::connect_timeout(&addr, Duration::from_millis(150)).is_ok()
 }
@@ -137,6 +142,7 @@ fn build_site(raw: RawSite, local: &Path, home: &Path, check_ports: bool) -> Sit
         http_port,
         running,
         missing,
+        managed: false,
     }
 }
 

@@ -30,6 +30,13 @@
   .dot.on { background: #1a1a1a; }
   .note { margin-top: 24px; color: #6b6b6b; font-size: 12px; }
   #error { color: #b3261e; margin: 16px 0; }
+  .actions { white-space: nowrap; text-align: right; }
+  .actions button { margin-left: 6px; }
+  button:disabled { color: #9a9a9a; border-color: #e8e8e8; cursor: default; }
+  button.primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  button.primary:disabled { background: #e8e8e8; color: #9a9a9a; border-color: #e8e8e8; }
+  .fail { color: #b3261e; font-size: 12px; margin-top: 6px; white-space: pre-wrap; max-width: 560px; }
+  .hint { color: #6b6b6b; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -40,40 +47,83 @@
   <p class="sub" id="where">Reading Local's site list…</p>
   <div id="error" hidden></div>
   <table id="table" hidden>
-    <thead><tr><th>Site</th><th>Domain</th><th>PHP</th><th>MySQL</th><th>Status</th><th>Ready</th></tr></thead>
+    <thead><tr><th>Site</th><th>Domain</th><th>PHP</th><th>MySQL</th><th>Status</th><th>Ready</th><th></th></tr></thead>
     <tbody id="rows"></tbody>
   </table>
-  <p class="note">Read-only preview. Nothing is started, changed or deleted yet.</p>
+  <p class="note">Start a site here only when it is not running in Local. Sites started here stop when you quit this app.</p>
 
 <script>
   const invoke = window.__TAURI__.core.invoke;
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+  const busy = {};      // site id -> "Starting…" | "Stopping…"
+  const failures = {};  // site id -> last error text
+  let sites = [];
+
+  function actions(s) {
+    const b = busy[s.id];
+    if (b) return `<button disabled>${b}</button>`;
+    if (!s.running) {
+      return `<button class="primary" data-act="start" data-id="${esc(s.id)}" ${s.missing.length ? "disabled" : ""}>Start</button>`;
+    }
+    return `<button data-act="open" data-domain="${esc(s.domain)}">Open site</button>` +
+           `<button data-act="admin" data-domain="${esc(s.domain)}">WP Admin</button>` +
+           (s.managed
+             ? `<button data-act="stop" data-id="${esc(s.id)}">Stop</button>`
+             : `<div class="hint">Started elsewhere</div>`);
+  }
+
+  function render() {
+    $("table").hidden = sites.length === 0;
+    $("rows").innerHTML = sites.map((s) => `
+      <tr>
+        <td class="name">${esc(s.name)}<div class="muted">${esc(s.path)}</div></td>
+        <td>${esc(s.domain)}</td>
+        <td>${esc(s.php || "—")}</td>
+        <td>${esc(s.mysql || "—")}</td>
+        <td><span class="dot ${s.running ? "on" : ""}"></span>${s.running ? "Running" : "Stopped"}</td>
+        <td>${s.missing.length === 0
+          ? '<span class="ok">Yes</span>'
+          : '<span>No</span>' + s.missing.map((m) => `<div class="warn">${esc(m)}</div>`).join("")}</td>
+        <td class="actions">${actions(s)}${failures[s.id] ? `<div class="fail">${esc(failures[s.id])}</div>` : ""}</td>
+      </tr>`).join("");
+  }
+
   async function load() {
-    $("error").hidden = true;
     try {
       const o = await invoke("list_sites");
       $("where").textContent = o.local_found ? "Read from " + o.local_dir : "Local was not found at " + o.local_dir;
-      if (o.error) { $("error").textContent = o.error; $("error").hidden = false; }
-      $("table").hidden = o.sites.length === 0;
-      $("rows").innerHTML = o.sites.map((s) => `
-        <tr>
-          <td class="name">${esc(s.name)}<div class="muted">${esc(s.path)}</div></td>
-          <td>${esc(s.domain)}</td>
-          <td>${esc(s.php || "—")}</td>
-          <td>${esc(s.mysql || "—")}</td>
-          <td><span class="dot ${s.running ? "on" : ""}"></span>${s.running ? "Running" : "Stopped"}</td>
-          <td>${s.missing.length === 0
-            ? '<span class="ok">Yes</span>'
-            : '<span>No</span>' + s.missing.map((m) => `<div class="warn">${esc(m)}</div>`).join("")}</td>
-        </tr>`).join("");
+      $("error").hidden = !o.error;
+      if (o.error) $("error").textContent = o.error;
+      sites = o.sites;
+      render();
     } catch (e) {
       $("error").textContent = String(e); $("error").hidden = false;
     }
   }
+
+  async function run(id, verb, label) {
+    busy[id] = label; delete failures[id]; render();
+    try { await invoke(verb, { id }); }
+    catch (e) { failures[id] = String(e); }
+    delete busy[id];
+    await load();
+  }
+
+  $("rows").addEventListener("click", (ev) => {
+    const btn = ev.target.closest("button[data-act]");
+    if (!btn) return;
+    const { act, id, domain } = btn.dataset;
+    if (act === "start") run(id, "start_site", "Starting…");
+    else if (act === "stop") run(id, "stop_site", "Stopping…");
+    else if (act === "open") invoke("open_url", { url: "https://" + domain });
+    else if (act === "admin") invoke("open_url", { url: "https://" + domain + "/wp-admin/" });
+  });
+
   $("refresh").addEventListener("click", load);
   load();
+  setInterval(() => { if (Object.keys(busy).length === 0) load(); }, 4000);
 </script>
 </body>
 </html>
